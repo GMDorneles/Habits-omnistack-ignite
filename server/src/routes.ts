@@ -18,10 +18,10 @@ export async function appRoutes(app: FastifyInstance) {
             data: {
                 title,
                 created_at: today,
-                weekDays:{
-                    create:weekDays.map(weekDay=>{
-                        return{
-                            week_day:weekDay,
+                weekDays: {
+                    create: weekDays.map(weekDay => {
+                        return {
+                            week_day: weekDay,
                         }
                     })
                 }
@@ -29,27 +29,44 @@ export async function appRoutes(app: FastifyInstance) {
         })
     })
 
-    app.get('/day',async(request)=>{
+    app.get('/day', async (request) => {
         const getDayParams = z.object({
-            date:z.coerce.date()
+            date: z.coerce.date()
         })
-        const {date} = getDayParams.parse(request.query)
-        const parsedDate=dayjs(date).startOf('day')
+        const { date } = getDayParams.parse(request.query)
+        const parsedDate = dayjs(date).startOf('day')
         const weekDay = parsedDate.get('day')
+        //habitos possiveis de ser completados
         const possibleHabits = await prisma.habit.findMany({
-            where:{
-                created_at:{
-                    lte:date,
+            //encontrar habitos  onde a data de criação é menor ou igual a data do dia
+            where: {
+                created_at: {
+                    lte: date,
                 },
-                weekDays:{
-                    some:{
-                        week_day:weekDay
+                //habitos onde tem ao menos um dia da semana cadastrado igual ao recebido
+                weekDays: {
+                    some: {
+                        week_day: weekDay
                     }
                 }
             }
         })
-        return{
-            possibleHabits,
+
+        const day = await prisma.day.findUnique({
+            //busca dia onde a data é igual a enviada
+            where: {
+                date: parsedDate.toDate()
+            },
+            //ao passar um dos relacionanmentos tras todos os dayhabits relacionados a esse dia (habitos relacionado a esse dia são os habitos  completados)
+            include: {
+                dayHabits: true,
+            }
+        })
+        const completedHabits = day?.dayHabits.map(dayHabit => {
+            return dayHabit.habit_id
+        })
+        return {
+            possibleHabits, completedHabits
         }
     })
 }
