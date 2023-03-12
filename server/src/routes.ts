@@ -31,9 +31,12 @@ export async function appRoutes(app: FastifyInstance) {
     const getDayParams = z.object({
       date: z.coerce.date(),
     });
+
     const { date } = getDayParams.parse(request.query);
+
     const parsedDate = dayjs(date).startOf("day");
     const weekDay = parsedDate.get("day");
+
     //habitos possiveis de ser completados
     const possibleHabits = await prisma.habit.findMany({
       //encontrar habitos  onde a data de criação é menor ou igual a data do dia
@@ -50,7 +53,7 @@ export async function appRoutes(app: FastifyInstance) {
       },
     });
 
-    const day = await prisma.day.findUnique({
+    const day = await prisma.day.findFirst({
       //busca dia onde a data é igual a enviada
       where: {
         date: parsedDate.toDate(),
@@ -60,9 +63,11 @@ export async function appRoutes(app: FastifyInstance) {
         dayHabits: true,
       },
     });
-    const completedHabits = day?.dayHabits.map((dayHabit) => {
-      return dayHabit.habit_id;
-    });
+    const completedHabits =
+      day?.dayHabits.map((dayHabit) => {
+        return dayHabit.habit_id;
+      }) ?? [];
+
     return {
       possibleHabits,
       completedHabits,
