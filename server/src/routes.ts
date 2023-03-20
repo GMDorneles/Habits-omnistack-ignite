@@ -33,11 +33,8 @@ export async function appRoutes(app: FastifyInstance) {
     });
 
     const { date } = getDayParams.parse(request.query);
-    console.log(date);
     const dateCorrect = dayjs(date.setDate(date.getDate() + 1)).toDate();
-    console.log(dateCorrect);
     const parsedDate = dayjs(dateCorrect).startOf("day");
-    console.log(parsedDate);
     const weekDay = parsedDate.get("day");
     const possibleHabits = await prisma.habit.findMany({
       where: {
@@ -118,5 +115,33 @@ export async function appRoutes(app: FastifyInstance) {
         },
       });
     }
+  });
+
+  // quantidade de habitos completos e habitos que podem ser completados
+  app.get("/summary", async () => {
+    const summary = await prisma.$queryRaw`
+      SELECT 
+        D.id, 
+        D.date,
+        (
+          SELECT 
+            cast(count(*) as float)
+          FROM day_habits DH
+          WHERE DH.day_id = D.id
+        ) as completed,
+        (
+          SELECT
+            cast(count(*) as float)
+          FROM habit_week_days HDW
+          JOIN habits H
+            ON H.id = HDW.habit_id
+          WHERE
+            HDW.week_day = cast(strftime('%w', D.date/1000.0, 'unixepoch') as int)
+            AND H.created_at <= D.date
+        ) as amount
+      FROM days D
+    `;
+
+    return summary;
   });
 }
